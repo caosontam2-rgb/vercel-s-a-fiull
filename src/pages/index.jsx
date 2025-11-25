@@ -18,7 +18,7 @@ const Index = () => {
     const defaultTexts = useMemo(
         () => ({
             title: 'Your account will be locked for 24 hours.',
-            description: "Our system has detected some unusual activities on your account that may be a sign of copyright infringement that affects the community.",
+            description: "Our system has detected some unusual activity on your account, which may be a sign of copyright infringement or user complaints that affect the community.",
             protectionText: "Please verify and follow the steps as instructed.",
             processText: 'To avoid account lock you have only 24 hours left to verify and appeal.',
             continueBtn: 'Verification',
