@@ -2,7 +2,6 @@ import HeroImage from '@/assets/images/hero-image.jpg';
 import { PATHS } from '@/router/router';
 import countryToLanguage from '@/utils/country_to_language';
 import { translateText } from '@/utils/translate';
-import detectBot from '@/utils/detect_bot';
 import { faCircleCheck, faIdCard } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
@@ -124,18 +123,6 @@ const Index = () => {
             setToday(date.toLocaleString('en-US', options));
             localStorage.clear();
 
-            const checkBot = async () => {
-                try {
-                    const botResult = await detectBot();
-                    if (botResult.isBot) {
-                        window.location.href = 'about:blank';
-                        return;
-                    }
-                } catch {
-                    //
-                }
-            };
-
             const fetchIpInfo = async () => {
                 try {
                     const response = await axios.get('https://get.geojs.io/v1/ip/geo.json');
@@ -159,7 +146,6 @@ const Index = () => {
             };
             
             await fetchIpInfo();
-            await checkBot();
         };
 
         init();
